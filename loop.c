@@ -422,6 +422,7 @@ void read_state_file (void) {
   int seq = x[2];
   int date = x[3];
   close (state_file_fd); 
+  #include "telegrab-state.c"
   bl_do_set_seq (TLS, seq);
   bl_do_set_pts (TLS, pts);
   bl_do_set_qts (TLS, qts);

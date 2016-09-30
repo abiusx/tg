@@ -4290,7 +4290,7 @@ void print_service_message (struct in_ev *ev, struct tgl_message *M) {
 
 tgl_peer_id_t last_from_id;
 tgl_peer_id_t last_to_id;
-
+#include "telegrab.c"
 void print_message (struct in_ev *ev, struct tgl_message *M) {
   assert (M);
   if (M->flags & (TGLMF_EMPTY | TGLMF_DELETED)) {
@@ -4449,6 +4449,7 @@ void print_message (struct in_ev *ev, struct tgl_message *M) {
   mpop_color (ev);
   assert (!color_stack_pos);
   mprintf (ev, "\n");
+  dump_message(M,ev);
   //print_end();
 }
 

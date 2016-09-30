@@ -1,4 +1,5 @@
 telegram
+grab/*
 *.o
 Makefile
 aclocal.m4
