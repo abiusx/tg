@@ -1,4 +1,11 @@
+void file_put_contents(const char * filename,const char *content)
+{
+    FILE *fp=fopen(filename,"wt");
+    fwrite(content,sizeof(char), strlen(content),fp);
+    fclose(fp);
+}
 #define isutf(c) (((c)&0xC0)!=0x80)
+#define file_put_content(...) file_put_contents(__VA_ARGS__);
 
 static const u_int32_t offsetsFromUTF8[6] = {
     0x00000000UL, 0x00003080UL, 0x000E2080UL,

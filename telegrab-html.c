@@ -1,3 +1,9 @@
+/**
+ * Convert new lines to HTML <br>s
+ * @param  dest [description]
+ * @param  src  [description]
+ * @return      [description]
+ */
 char *nl2br(char *dest,const char * src)
 {
   char *temp=str_replace(src,"\n","<br/>");
@@ -7,6 +13,12 @@ char *nl2br(char *dest,const char * src)
     strcpy(dest,temp);
   return dest;
 }
+/**
+ * Encode HTML special chars
+ * @param  output [description]
+ * @param  input  [description]
+ * @return        [description]
+ */
 char * htmlspecialchars(char *output,const char *input)
 {
   long i = 0;
@@ -39,13 +51,16 @@ char * htmlspecialchars(char *output,const char *input)
   output[j] = 0;
   return output;
 }
-
+/**
+ * The css used in all chats
+ * @param filename [description]
+ */
 void initialize_css(const char *filename)
 {
-  FILE * fp=fopen(filename,"wt");
-  fprintf(fp,"\n\
+  file_put_content(filename,"\n\
     body {\n\
       background-color:#B0B8CC;\n\
+      font-family:sans-serif;\n\
     }\n\
     .message { \n\
       width:auto;\n\
@@ -88,29 +103,35 @@ void initialize_css(const char *filename)
     img[src='Error.src']{\n\
       display: none;\n\
     }\n\
+    .system {\n\
+      font-weight:bold;\n\
+    }\n\
   \n\
     "
     );
-  fclose(fp);
 
 }
-//TODO: show top/bottom button
+/**
+ * The javascript used in all chats
+ * @param filename [description]
+ */
 void initialize_script(const char *filename)
 {
-  FILE * fp=fopen(filename,"wt");
-  fprintf(fp,"\
+  //TODO: show top/bottom button
+  file_put_content(filename,"\
     document.addEventListener('DOMContentLoaded', function() {\n\
   var text = document.getElementById('title').innerHTML;\n\
   //var title_holder=parent.frames['top'].getElementById('title'); //SOP violation\n\
   //title_holder.innerHTML=text;\n\
 }, false);\n\
     ");
-  fclose(fp);
 }
+/**
+ * The frameset for chat manager
+ */
 void initialize_frameset()
 {
-  FILE * fp=fopen("grab/index.html","wt");
-  fprintf(fp,"<!DOCTYPE html>\n\
+  file_put_content("grab/index.html","<!DOCTYPE html>\n\
 <html>\n\
 <frameset rows='10%%,*'>\n\
   <frame name='top' src='_html/top.html'>\n\
@@ -121,9 +142,8 @@ void initialize_frameset()
 </frameset>\n\
 </html>\n\
 ");
-  fclose(fp);
-  fp=fopen("grab/_html/top.html","wt");
-  fprintf(fp,"<!DOCTYPE html>\n\
+  file_put_content("grab/_html/top.html"
+  ,"<!DOCTYPE html>\n\
 <html>\n\
 <head></head>\n\
 <body>\n\
@@ -132,9 +152,8 @@ void initialize_frameset()
 </body>\n\
 </html>\n\
 ");
-  fclose(fp);
-  fp=fopen("grab/_html/home.html","wt");
-  fprintf(fp,"<!DOCTYPE html>\n\
+  file_put_content("grab/_html/home.html",
+  "<!DOCTYPE html>\n\
 <html>\n\
 <head></head>\n\
 <body>\n\
@@ -142,12 +161,10 @@ void initialize_frameset()
 </body>\n\
 </html>\n\
 ");
-  fclose(fp);
-  fp=fopen("grab/_html/list.html","wt");
-  fprintf(fp,"<!--total: 0 #will be updated below-->\n");
-  fclose(fp);
-  fp=fopen("grab/_html/list_style.css","wt");
-  fprintf(fp,"\n\
+  file_put_content("grab/_html/list.html"
+  ,"<!--total: 0 #will be updated below-->\n");
+  file_put_content("grab/_html/list_style.css"
+  ,"\n\
     a.list {\n\
       display:block;\n\
       height:50px;\n\
@@ -163,13 +180,18 @@ void initialize_frameset()
     .list .icon {\n\
       width:50px;\n\
       height:50px;\n\
-      border-radius:50%%;\n\
+      border-radius:50%;\n\
       vertical-align:top;\n\
     }\n\
     ");
-  fclose(fp);
-
 }
+/**
+ * Adds a single entry to the chat list, and brings it to the top
+ * @param  peer  [description]
+ * @param  title [description]
+ * @param  file  [description]
+ * @return       [description]
+ */
 int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
 {
 
@@ -224,6 +246,7 @@ int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
     char *t=safe_malloc(strlen(title)*2);
     htmlspecialchars(t,title);
 
+    printf("Adding new title '%s'...\n",t);
     //photo
     safe_mkdir("grab/_html/avatars");
     char temp[1024];
@@ -253,6 +276,12 @@ int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
   free(lines);
   return !found;
 }
+/**
+ * Create a basic template for a single chat's HTML
+ * @param id       [description]
+ * @param filename [description]
+ * @param title    [description]
+ */
 void initiate_html(int id,const char *filename, const char *title)
 {
   safe_mkdir("grab");
@@ -277,8 +306,19 @@ void initiate_html(int id,const char *filename, const char *title)
 </object></a>%s</h1>",id,id,buf);
   fclose(fp);
 }
+/**
+ * Dumps a message into HTML file
+ * @param M  [description]
+ * @param ev [description]
+ */
 void dump_message_html(struct tgl_message *M,struct in_ev *ev)
 {
+  //TODO: support media
+  //TODO: support reply-to embedding
+  //TODO: appropriate color for system messages depending on sender and message
+  //TODO: Use name only once in a batch of messages in groups
+  //TODO: thumbnail in group chat
+  //TODO: self messages in group chat don't have names
   char *html=safe_malloc(1024*1024*8);
   char *temp=safe_malloc(1024*1024);
   char *temp2=safe_malloc(1024*1024);
@@ -287,31 +327,55 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   tgl_peer_t *to_peer=tgl_peer_get (TLS, M->to_id);
   tgl_peer_t *from_peer=tgl_peer_get(TLS,M->from_id);
   int peer_type=tgl_get_peer_type (M->to_id);
-  tgl_peer_t * target_peer=from_peer;
+  tgl_peer_t * sender_peer;
+  tgl_peer_t * chat_peer;
+
   char *operation=safe_malloc(1024);
+  int is_group=0;
   if (peer_type==TGL_PEER_USER)
   {
     if (M->flags & TGLMF_OUT) //outbound, use to_id
     {
-      target_peer=to_peer; 
+      sender_peer=from_peer; 
+      chat_peer=to_peer; 
       operation="send";
     }
     else
+    {
+      sender_peer=from_peer; 
+      chat_peer=from_peer; 
       operation="receive";
+    }
   }
   else if (peer_type==TGL_PEER_CHAT || peer_type==TGL_PEER_ENCR_CHAT || peer_type==TGL_PEER_GEO_CHAT)
+  {
+    is_group=1;
+    sender_peer=from_peer; 
+    chat_peer=to_peer; 
     operation="receive";
+  }
   else if (peer_type==TGL_PEER_CHANNEL)
+  {
+    is_group=1;
+    sender_peer=from_peer; 
+    chat_peer=to_peer; 
     operation="receive";
+  }
   else
+  {
+    sender_peer=from_peer; 
+    chat_peer=to_peer; 
     operation="receive";
+  }
+  if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)==0)
+    operation="send";
+  // int sender_id=tgl_get_peer_id(sender_peer->id);
+  int chat_id=tgl_get_peer_id(chat_peer->id);
 
-  int id=tgl_get_peer_id(target_peer->id);
-  
-  char *peer_filename=safe_malloc(1024);
-  get_peer_filename(peer_filename,target_peer);
-  char *peer_title=safe_malloc(1024);
-  get_peer_title(peer_title,target_peer);
+  char *chat_filename=safe_malloc(1024);
+  get_peer_filename(chat_filename,chat_peer);
+  char *chat_title=safe_malloc(1024);
+  get_peer_title(chat_title,chat_peer);
 
 
   char *date_string=safe_malloc(256);
@@ -319,18 +383,29 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   date2string(date_string,M->date);
   
   //filename
-  memmove(peer_filename+5,peer_filename,strlen(peer_filename)+1);
-  memcpy(peer_filename,"grab/",5);
-  strcat(peer_filename,".html");
+  memmove(chat_filename+5,chat_filename,strlen(chat_filename)+1);
+  memcpy(chat_filename,"grab/",5);
+  strcat(chat_filename,".html");
   
-  if (!file_exists(peer_filename))
-    initiate_html(id,peer_filename,peer_title);
+  if (!file_exists(chat_filename))
+    initiate_html(chat_id,chat_filename,chat_title);
 
 
 
-  add_to_list(target_peer,peer_title,peer_filename);
+  add_to_list(chat_peer,chat_title,chat_filename);
 
   xsprintf(html,"<div class='message_container'><a name='message_%lld' /><div class='message %s'>\n",M->permanent_id.id,operation);
+
+//sender name  
+if (is_group)
+{
+  // xsprintf(html,"<div class='user'>%s</div>\n",temp);
+  htmlspecialchars(temp,get_peer_title (temp2,sender_peer));    
+  xsprintf (html, "\t<div class='sysem'><a href='https://telegram.me/%s'>%s</a></div>\n",
+    sender_peer->username,temp);
+}
+
+
   //other message types
   if (tgl_get_peer_type (M->fwd_from_id) > 0)  //forward
   {
@@ -358,7 +433,7 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
     int is_rtl=u8_is_rtl(M->message);
     // printf("is rtl: %d\n",is_rtl);
 
-    xsprintf (html, "\t<span class='content'%s>%s</span>\n",is_rtl?" dir='rtl'":"",temp2);
+    xsprintf (html, "\t<div class='content'%s>%s</div>\n",is_rtl?" dir='rtl'":"",temp2);
   }
 
   /*
@@ -534,7 +609,7 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
 
 
   //write to file
-  FILE * f=fopen(peer_filename,"at+");
+  FILE * f=fopen(chat_filename,"at+");
   if (f==NULL)
     perror("Error");
   fwrite(html,strlen(html),1,f);
@@ -542,6 +617,7 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
 
   free(html);
   free(temp);
-  free(peer_filename);
-  free(peer_title);
+  free(temp2);
+  free(chat_filename);
+  free(chat_title);
 }
