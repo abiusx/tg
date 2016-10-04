@@ -79,6 +79,15 @@ void initialize_css(const char *filename)
     .clear {\n\
       claer:both;\n\
     }\n\
+    .avatar {\n\
+      margin:5px;\n\
+      width:32px;\n\
+      height:32px;\n\
+      vertical-align:middle;\n\
+    }\n\
+    img[src='Error.src']{\n\
+      display: none;\n\
+    }\n\
   \n\
     "
     );
@@ -148,10 +157,12 @@ void initialize_frameset()
     a.list:HOVER {\n\
       background-color:#EEE;\n\
     }\n\
+    object.icon {\n\
+      margin-right:10px;\n\
+    }\n\
     .list .icon {\n\
       width:50px;\n\
       height:50px;\n\
-      margin-right:10px;\n\
       border-radius:50%%;\n\
       vertical-align:top;\n\
     }\n\
@@ -159,9 +170,12 @@ void initialize_frameset()
   fclose(fp);
 
 }
-int add_to_list(int id, const char *title, const char *file)
+int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
 {
-  //FIXME: what if a channel and a user have same id? is it possible?
+
+  //FIXME: what if a channel and a user have same id? is it even possible?
+  int id=tgl_get_peer_id(peer->id);
+
   char **lines;
   const int size=4096;
   char buf[size];
@@ -198,22 +212,39 @@ int add_to_list(int id, const char *title, const char *file)
       break;
     }
   }
-  if (!found)
+  if (!found) //new user
   {
     // printf("adding %d\n",total);
     total++;
     //TODO:shift
     lines[total]=lines[1];
     lines[1]=safe_malloc(size);
+
+    //title
     char *t=safe_malloc(strlen(title)*2);
     htmlspecialchars(t,title);
-    sprintf(lines[1],"<!--peerid: %d --><a class='list' target='content' href='../../%s'><img class='icon' />%s</a>\n",id,file,t);
+
+    //photo
+    safe_mkdir("grab/_html/avatars");
+    char temp[1024];
+    sprintf(temp,"%d",id);
+    char *avatar_file=create_download_file("_html/avatars",temp,"jpg");
+    tgl_do_load_file_location(TLS,&peer->photo_big,download_callback,avatar_file);
+    printf("saving to %s...\n",avatar_file);
+    // if (peer->photo)
+      // tgl_do_load_photo(TLS,peer->photo,download_callback,file);
+
+    sprintf(lines[1],"<!--peerid: %d --><a class='list' target='content' href='../../%s'>\
+<object class='icon' data='avatars/%d.jpg' type='image/jpg'>\
+<img class='icon' src='avatars/default.jpg' />\
+</object>%s</a>\n",id,file,id,t);
     free(t);
   }
 
   fp=fopen("grab/_html/list.html","wt");
+ //<meta http-equiv='refresh' content='5; URL=list.html'>
   fprintf(fp,"<!--total: %d --><link rel='stylesheet' href='list_style.css' />\
- <meta http-equiv='refresh' content='5; URL=list.html'>\n",total);
+    \n",total);
   for (i=1;i<=total;++i)
     fprintf(fp,"%s",lines[i]);
   fclose(fp);
@@ -222,7 +253,7 @@ int add_to_list(int id, const char *title, const char *file)
   free(lines);
   return !found;
 }
-void initiate_html(const char *filename, const char *title)
+void initiate_html(int id,const char *filename, const char *title)
 {
   safe_mkdir("grab");
   safe_mkdir("grab/_html");
@@ -237,8 +268,13 @@ void initiate_html(const char *filename, const char *title)
   char buf[1024];
   FILE * fp=fopen(filename,"wt");
   htmlspecialchars(buf,title);
-  fprintf(fp,"<html>\n\t<head>\n\t\t<title>%s</title>\n\t\t<script src='_html/script.js'></script>\
-\n\t\t<link rel='stylesheet' href='_html/style.css' />\n\t</head>\n\t<body><h1 id='title'>%s</h1>",buf,buf);
+  fprintf(fp,"<html>\n\t<head>\n\t\t<script src='_html/script.js'></script>\
+\n\t\t<link rel='stylesheet' href='_html/style.css' />\n\t</head>\n\t<body>\
+<h1 id='title'>\
+<a href='_html/avatars/%d.jpg' target='_blank'>\
+<object class='avatar' data='_html/avatars/%d.jpg' type='image/jpg'>\
+<img class='avatar' src='_html/avatars/default.jpg' />\
+</object></a>%s</h1>",id,id,buf);
   fclose(fp);
 }
 void dump_message_html(struct tgl_message *M,struct in_ev *ev)
@@ -270,6 +306,8 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   else
     operation="receive";
 
+  int id=tgl_get_peer_id(target_peer->id);
+  
   char *peer_filename=safe_malloc(1024);
   get_peer_filename(peer_filename,target_peer);
   char *peer_title=safe_malloc(1024);
@@ -286,11 +324,11 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   strcat(peer_filename,".html");
   
   if (!file_exists(peer_filename))
-    initiate_html(peer_filename,peer_title);
+    initiate_html(id,peer_filename,peer_title);
 
 
 
-  add_to_list(tgl_get_peer_id(target_peer->id),peer_title,peer_filename);
+  add_to_list(target_peer,peer_title,peer_filename);
 
   xsprintf(html,"<div class='message_container'><a name='message_%lld' /><div class='message %s'>\n",M->permanent_id.id,operation);
   //other message types

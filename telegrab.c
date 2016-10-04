@@ -74,13 +74,17 @@ static void download_callback (struct tgl_state *TLSR, void *extra, int success,
  * @param  extension [description]
  * @return           [description]
  */
-char * create_download_file(const char *chat_name,const char *extension)
+char * create_download_file(const char *folder,const char *file,const char *extension)
 {
-  char *file=safe_malloc(1024);
-  sprintf(file,"grab/%s/",chat_name);
-  safe_mkdir(file);
-  xsprintf(file,"%d%d.%s",rand(),rand(),extension);
-  return file;
+  char filename[1024];
+
+  if (file==0)
+    sprintf(filename,"%d%d",rand(),rand());
+  else
+    strcpy(filename,file);
+  char *filepath=safe_malloc(1024);
+  sprintf(filepath,"grab/%s/%s.%s",folder,filename,extension);
+  return filepath;
 }
 
 

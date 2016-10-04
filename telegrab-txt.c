@@ -128,7 +128,7 @@ void dump_message_txt(struct tgl_message *M,struct in_ev *ev)
           ,ME->photo->sizes[maxi].size
           ,ME->photo->sizes[maxi].w,ME->photo->sizes[maxi].h,ME->photo->sizes[maxi].type);
 
-        char *image_file=create_download_file(chat_name,"jpg");
+        char *image_file=create_download_file(chat_name,0,"jpg");
         tgl_do_load_file_location(TLS,&ME->photo->sizes[maxi].loc,download_callback,image_file);
         xsprintf(buf," saved in %s",image_file);
       }
@@ -182,7 +182,7 @@ void dump_message_txt(struct tgl_message *M,struct in_ev *ev)
         xsprintf(buf,"}");
         
         //save in file
-        char *file=create_download_file(chat_name,extension);
+        char *file=create_download_file(chat_name,0,extension);
         tgl_do_load_document(TLS,ME->document,download_callback,file);
         xsprintf(buf," saved in %s",file);        
       }
@@ -214,7 +214,7 @@ void dump_message_txt(struct tgl_message *M,struct in_ev *ev)
         xsprintf(buf,"}");
 
         //save in file
-        char *file=create_download_file(chat_name,get_extension(ME->caption));
+        char *file=create_download_file(chat_name,0,get_extension(ME->caption));
         tgl_do_load_encr_document(TLS,ME->encr_document,download_callback,file);
         xsprintf(buf," saved in %s",file);        
 
