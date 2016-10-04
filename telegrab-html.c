@@ -397,7 +397,7 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   xsprintf(html,"<div class='message_container'><a name='message_%lld' /><div class='message %s'>\n",M->permanent_id.id,operation);
 
 //sender name  
-if (is_group)
+if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
 {
   // xsprintf(html,"<div class='user'>%s</div>\n",temp);
   htmlspecialchars(temp,get_peer_title (temp2,sender_peer));    
@@ -433,8 +433,12 @@ if (is_group)
     int is_rtl=u8_is_rtl(M->message);
     // printf("is rtl: %d\n",is_rtl);
 
-    xsprintf (html, "\t<div class='content'%s>%s</div>\n",is_rtl?" dir='rtl'":"",temp2);
+    xsprintf (html, "\t<div class='content'%s>%s",is_rtl?" dir='rtl'":"",temp2);
   }
+  else
+    xsprintf(html,"\t<div class='content'>");
+  xsprintf(html,"<span class='date'>%s</span></div>",date_string);
+
 
   /*
   //MEDIA handling
@@ -605,8 +609,8 @@ if (is_group)
     // print_media (ev, &M->media);
   }  
   */
-  xsprintf(html,"<span class='date'>%s</span></div><!-- msgid: %lld --></div>\n",date_string,M->permanent_id.id);
 
+  xsprintf(html,"<!-- msgid: %lld --></div>\n",M->permanent_id.id);
 
   //write to file
   FILE * f=fopen(chat_filename,"at+");
