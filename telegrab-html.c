@@ -79,6 +79,7 @@ void initialize_css(const char *filename)
     .clear {\n\
       claer:both;\n\
     }\n\
+  \n\
     "
     );
   fclose(fp);
@@ -88,14 +89,146 @@ void initialize_css(const char *filename)
 void initialize_script(const char *filename)
 {
   FILE * fp=fopen(filename,"wt");
-  fprintf(fp,"\n");
+  fprintf(fp,"\
+    document.addEventListener('DOMContentLoaded', function() {\n\
+  var text = document.getElementById('title').innerHTML;\n\
+  //var title_holder=parent.frames['top'].getElementById('title'); //SOP violation\n\
+  //title_holder.innerHTML=text;\n\
+}, false);\n\
+    ");
   fclose(fp);
 }
+void initialize_frameset()
+{
+  FILE * fp=fopen("grab/index.html","wt");
+  fprintf(fp,"<!DOCTYPE html>\n\
+<html>\n\
+<frameset rows='10%%,*'>\n\
+  <frame name='top' src='_html/top.html'>\n\
+  <frameset cols='25%%,75%%'>\n\
+    <frame name='list' src='_html/list.html'>\n\
+    <frame name='content' src='_html/home.html'>\n\
+  </frameset>\n\
+</frameset>\n\
+</html>\n\
+");
+  fclose(fp);
+  fp=fopen("grab/_html/top.html","wt");
+  fprintf(fp,"<!DOCTYPE html>\n\
+<html>\n\
+<head></head>\n\
+<body>\n\
+<h1 style='text-align:center;'>Telegrab</h1>\n\
+<div id='title'></div>\n\
+</body>\n\
+</html>\n\
+");
+  fclose(fp);
+  fp=fopen("grab/_html/home.html","wt");
+  fprintf(fp,"<!DOCTYPE html>\n\
+<html>\n\
+<head></head>\n\
+<body>\n\
+<p>Welcome to Telegrab! Select an item from the list on the left.</p>\n\
+</body>\n\
+</html>\n\
+");
+  fclose(fp);
+  fp=fopen("grab/_html/list.html","wt");
+  fprintf(fp,"<!--total: 0 #will be updated below-->\n");
+  fclose(fp);
+  fp=fopen("grab/_html/list_style.css","wt");
+  fprintf(fp,"\n\
+    a.list {\n\
+      display:block;\n\
+      height:50px;\n\
+      padding:5px;\n\
+      width:100%%;\n\
+    }\n\
+    a.list:HOVER {\n\
+      background-color:#EEE;\n\
+    }\n\
+    .list .icon {\n\
+      width:50px;\n\
+      height:50px;\n\
+      margin-right:10px;\n\
+      border-radius:50%%;\n\
+      vertical-align:top;\n\
+    }\n\
+    ");
+  fclose(fp);
 
+}
+int add_to_list(int id, const char *title, const char *file)
+{
+  //FIXME: what if a channel and a user have same id? is it possible?
+  char **lines;
+  const int size=4096;
+  char buf[size];
+  FILE * fp=fopen("grab/_html/list.html","rt");
+  fgets(buf,size,fp); //includes newline
+  int total;
+  sscanf(buf,"%*s %d",&total);
+
+  lines=safe_malloc(sizeof(char*) * (total+1+1));
+  lines[0]=safe_malloc(strlen(buf)+1);
+  strcpy(lines[0],buf);
+  int i;
+  for (i=1;i<=total;++i)
+  {
+    fgets(buf,size,fp);
+    if (!strlen(buf)) continue;
+    lines[i]=safe_malloc(strlen(buf)+1);
+    // printf("X%dX-%s\n",i,lines[i]);
+    strcpy(lines[i],buf);
+  }
+  fclose (fp);
+  int found=0;
+  for (i=1;i<=total;++i)
+  {
+    int eid;
+    sscanf(lines[i],"%*s %d",&eid);
+    if (eid==id)
+    {
+      char *t=lines[i];
+      lines[i]=lines[1];
+      lines[1]=t;
+      found=1;
+      //TODO: shift instead of swap
+      break;
+    }
+  }
+  if (!found)
+  {
+    // printf("adding %d\n",total);
+    total++;
+    //TODO:shift
+    lines[total]=lines[1];
+    lines[1]=safe_malloc(size);
+    char *t=safe_malloc(strlen(title)*2);
+    htmlspecialchars(t,title);
+    sprintf(lines[1],"<!--peerid: %d --><a class='list' target='content' href='../../%s'><img class='icon' />%s</a>\n",id,file,t);
+    free(t);
+  }
+
+  fp=fopen("grab/_html/list.html","wt");
+  fprintf(fp,"<!--total: %d --><link rel='stylesheet' href='list_style.css' />\
+ <meta http-equiv='refresh' content='5; URL=list.html'>\n",total);
+  for (i=1;i<=total;++i)
+    fprintf(fp,"%s",lines[i]);
+  fclose(fp);
+  for (i=0;i<=total;++i)
+    free(lines[i]);
+  free(lines);
+  return !found;
+}
 void initiate_html(const char *filename, const char *title)
 {
   safe_mkdir("grab");
   safe_mkdir("grab/_html");
+
+  if (!file_exists("grab/index.html"))
+    initialize_frameset();
   if (!file_exists("grab/_html/style.css"))
     initialize_css("grab/_html/style.css");
   if (!file_exists("grab/_html/script.js"))
@@ -105,7 +238,7 @@ void initiate_html(const char *filename, const char *title)
   FILE * fp=fopen(filename,"wt");
   htmlspecialchars(buf,title);
   fprintf(fp,"<html>\n\t<head>\n\t\t<title>%s</title>\n\t\t<script src='_html/script.js'></script>\
-\n\t\t<link rel='stylesheet' href='_html/style.css' />\n\t</head>\n\t<body><h1>%s</h1>",buf,buf);
+\n\t\t<link rel='stylesheet' href='_html/style.css' />\n\t</head>\n\t<body><h1 id='title'>%s</h1>",buf,buf);
   fclose(fp);
 }
 void dump_message_html(struct tgl_message *M,struct in_ev *ev)
@@ -157,7 +290,7 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
 
 
 
-
+  add_to_list(tgl_get_peer_id(target_peer->id),peer_title,peer_filename);
 
   xsprintf(html,"<div class='message_container'><a name='message_%lld' /><div class='message %s'>\n",M->permanent_id.id,operation);
   //other message types
