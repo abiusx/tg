@@ -314,11 +314,11 @@ void initiate_html(int id,const char *filename, const char *title)
 void dump_message_html(struct tgl_message *M,struct in_ev *ev)
 {
   //TODO: support media
-  //TODO: support reply-to embedding
-  //TODO: appropriate color for system messages depending on sender and message
-  //TODO: Use name only once in a batch of messages in groups
+  //FIXME: support reply-to embedding
+  //FIXME: appropriate color for system messages depending on sender and message
+  //FIXME: Use name only once in a batch of messages in groups
   //TODO: thumbnail in group chat
-  //TODO: self messages in group chat don't have names
+  //FIXME: some groups and all channels are not recovered in -5000, TGL_PEER_CHANNEL flag is for group.
   char *html=safe_malloc(1024*1024*8);
   char *temp=safe_malloc(1024*1024);
   char *temp2=safe_malloc(1024*1024);
