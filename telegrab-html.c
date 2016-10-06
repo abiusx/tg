@@ -65,10 +65,20 @@ void initialize_css(const char *filename)
     .message { \n\
       width:auto;\n\
       margin:3px;\n\
-      padding:10px 15px 5px 20px;\n\
       border-radius:25px;\n\
       display:inline-block;\n\
       position:relative;\n\
+      overflow:auto;\n\
+      max-width:80%;\n\
+    }\n\
+    .content {\n\
+      padding:10px 15px 5px 20px;\n\
+    }\n\
+    .media {\n\
+      \n\
+    }\n\
+    img.media {\n\
+      max-width:400px;\n\
     }\n\
     .message.receive {\n\
       background-color:white;\n\
@@ -250,15 +260,14 @@ int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
       lines[i]=lines[1];
       lines[1]=t;
       found=1;
-      //TODO: shift instead of swap
+      //FIXME: shift instead of swap
       break;
     }
   }
   if (!found) //new user
   {
-    // printf("adding %d\n",total);
     total++;
-    //TODO:shift
+    //FIXME:shift
     lines[total]=lines[1];
     lines[1]=safe_malloc(size);
 
@@ -267,9 +276,6 @@ int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
     htmlspecialchars(t,title);
 
     printf("Adding new title '%s'...\n",t);
-    // if (peer->photo)
-      // tgl_do_load_photo(TLS,peer->photo,download_callback,file);
-
     int avatar_id=download_avatar(peer);
     sprintf(lines[1],"<!--peerid: %d --><a class='list' target='content' href='../../%s'>\
 <object class='icon' data='avatars/%d.jpg' type='image/jpg'>\
@@ -388,6 +394,8 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   int chat_id=tgl_get_peer_id(chat_peer->id);
   char *chat_filename=safe_malloc(1024);
   get_peer_filename(chat_filename,chat_peer);
+  char *chat_folder=safe_malloc(1024);
+  sprintf(chat_folder,"%s_files",chat_filename);
   char *chat_title=safe_malloc(1024);
   get_peer_title(chat_title,chat_peer);
 
@@ -448,31 +456,17 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   // {
   //   xsprintf (buf, "{mention} ");
   // }
-  if (M->message && strlen (M->message))  //the message
-  {
-    htmlspecialchars(temp,M->message);
-    nl2br(temp2,temp);
-    int is_rtl=u8_is_rtl(M->message);
-    // printf("is rtl: %d\n",is_rtl);
-
-    xsprintf (html, "\t<div class='content'%s>%s",is_rtl?" dir='rtl'":"",temp2);
-  }
-  else
-    xsprintf(html,"\t<div class='content'>");
-  xsprintf(html,"<span class='date'>%s</span></div>",date_string);
 
 
-  /*
-  //MEDIA handling
+  ////////////////////
+  ///MEDIA handling///
+  ////////////////////
   if (M->media.type != tgl_message_media_none) //media
   {
       struct tgl_message_media *ME=&M->media;
-      xsprintf (buf, " MEDIA ");
       if (ME->type==tgl_message_media_photo) //PHOTO
       {
 
-        if (ME->caption)
-          xsprintf(buf,"caption:'%s' ",ME->caption);
         // printf("%d\n\n\n %p",ME->photo->sizes_num,M->media.photo);
         
         int max = -1;
@@ -484,154 +478,111 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
             maxi = i;
           }
         }          
-        xsprintf(buf, "{photo num:%d, size:%d, width:%d, height:%d, type:%s}"
-          ,ME->photo->sizes_num
-          ,ME->photo->sizes[maxi].size
-          ,ME->photo->sizes[maxi].w,ME->photo->sizes[maxi].h,ME->photo->sizes[maxi].type);
-
-        char *image_file=create_download_file(chat_name,"jpg");
+        char *image_file=create_download_file(chat_folder,0,"jpg");
         tgl_do_load_file_location(TLS,&ME->photo->sizes[maxi].loc,download_callback,image_file);
-        xsprintf(buf," saved in %s",image_file);
+        xsprintf(html,"<a href='../%s'><img src='../%s' class='media' /></a><div class='content'>%s",image_file,image_file,ME->caption?ME->caption:"");
       }
       else if (ME->type==tgl_message_media_document ||
         ME->type==tgl_message_media_audio ||
         ME->type==tgl_message_media_video
         )
       {
-        if (ME->caption)
-          xsprintf(buf,"caption:'%s' ",ME->caption);
-        assert (ME->document);
-        xsprintf(buf,"{");
         const char *extension;
         if (ME->document->caption)
           extension=get_extension(ME->document->caption);
-        else
-          extension="";
         if (ME->document->flags & TGLDF_IMAGE) 
-        {
-          xsprintf (buf, "image");
           extension="jpg";
-        }
         else if (ME->document->flags & TGLDF_AUDIO)
-        {
-          xsprintf (buf, "audio");
           extension="mp3";
-        }
         else if (ME->document->flags & TGLDF_VIDEO)
-        {
-          xsprintf (buf, "video");
           extension="avi";
-        }
         else if (ME->document->flags & TGLDF_STICKER)
-        {
-          xsprintf (buf, "sticker");
           extension="png";
-        }
-        else
-        {
-          xsprintf (buf, "document");
-        }
-        if (ME->document->caption && strlen (ME->document->caption))
-          xsprintf (buf, " caption=%s", ME->document->caption);
-        if (ME->document->mime_type) 
-          xsprintf (buf, " type=%s", ME->document->mime_type);
-        if (ME->document->w && ME->document->h) 
-          xsprintf (buf, " size=%dx%d", ME->document->w, ME->document->h);
-        if (ME->document->duration) 
-          xsprintf (buf, " duration=%d", ME->document->duration);
-        xsprintf (buf, " size=%d",ME->document->size);
-        xsprintf(buf,"}");
         
         //save in file
-        char *file=create_download_file(chat_name,extension);
+        char *file=create_download_file(chat_folder,0,extension);
         tgl_do_load_document(TLS,ME->document,download_callback,file);
-        xsprintf(buf," saved in %s",file);        
+        xsprintf(html,"<div class='content'><a href='../%s'>%s</a>",file,(ME->caption && strlen(ME->caption))?ME->caption:ME->document->caption);
       }
       else if (ME->type==tgl_message_media_document_encr)
       {
-        if (ME->caption)
-          xsprintf(buf,"caption:'%s' ",ME->caption);
-        xsprintf(buf,"{");
-        if (ME->encr_document->flags & TGLDF_IMAGE)
-          xsprintf (buf, "image");
+        const char *extension;
+        if (ME->encr_document->caption)
+          extension=get_extension(ME->encr_document->caption);
+        if (ME->encr_document->flags & TGLDF_IMAGE) 
+          extension="jpg";
         else if (ME->encr_document->flags & TGLDF_AUDIO)
-          xsprintf (buf, "audio");
+          extension="mp3";
         else if (ME->encr_document->flags & TGLDF_VIDEO)
-          xsprintf (buf, "video");
+          extension="avi";
         else if (ME->encr_document->flags & TGLDF_STICKER)
-          xsprintf (buf, "sticker");
-        else
-          xsprintf (buf, "document");
-        if (ME->encr_document->caption && strlen (ME->encr_document->caption)) 
-          xsprintf (buf, " caption=%s", ME->encr_document->caption);
-        if (ME->encr_document->mime_type) 
-          xsprintf (buf, " type=%s", ME->encr_document->mime_type);
-        if (ME->encr_document->w && ME->encr_document->h) 
-          xsprintf (buf, " size=%dx%d", ME->encr_document->w, ME->encr_document->h);
-
-        if (ME->encr_document->duration) 
-          xsprintf (buf, " duration=%d", ME->encr_document->duration);
-        xsprintf (buf, " size=%d",ME->encr_document->size);
-        xsprintf(buf,"}");
-
+          extension="png";
+        
         //save in file
-        char *file=create_download_file(chat_name,get_extension(ME->caption));
+        char *file=create_download_file(chat_folder,0,extension);
         tgl_do_load_encr_document(TLS,ME->encr_document,download_callback,file);
-        xsprintf(buf," saved in %s",file);        
+        xsprintf(html,"<div class='content'><a href='../%s'>%s</a>",file,(ME->caption && strlen(ME->caption))?ME->caption:ME->encr_document->caption);        
 
       }
       else if (ME->type==tgl_message_media_geo)
       {
-        xsprintf (buf, "{geo https://maps.google.com/?q=%.6lf,%.6lf}", ME->geo.latitude, ME->geo.longitude);
+        xsprintf (html, "<div class='content'><a href='https://maps.google.com/?q=%.6lf,%.6lf'>Map Location</a>", 
+          ME->geo.latitude, ME->geo.longitude);
       }
       else if (ME->type==tgl_message_media_contact)
       {
-        xsprintf (buf, "{contact");
-        xsprintf (buf, " %s %s", ME->first_name, ME->last_name);
-        xsprintf (buf, " %s", ME->phone);
-        xsprintf (buf,"}");
+        xsprintf (html, "<div class='content'>Contact: %s %s (%s)",ME->first_name, ME->last_name,ME->phone);
       }
       else if (ME->type==tgl_message_media_unsupported)
       {
-        xsprintf (buf, "{unsupported}");
+        xsprintf (html, "<div class='content'>[Unsupported Message]");
       }
       else if (ME->type==tgl_message_media_webpage)
       {
+        xsprintf(html,"\t<div class='content'>");
+
         if (ME->caption)
-          xsprintf(buf,"caption:'%s' ",ME->caption);
-        xsprintf (buf, "{webpage:");
+          xsprintf(html,"<a href='%s'>%s</a>",ME->caption,ME->caption);
         assert (ME->webpage);
         if (ME->webpage->url) 
-          xsprintf (buf, " url:'%s'", ME->webpage->url);
+          xsprintf (html, " url:'%s'", ME->webpage->url);
         if (ME->webpage->title) 
-          xsprintf (buf, " title:'%s'", ME->webpage->title);
+          xsprintf (html, " title:'%s'", ME->webpage->title);
         if (ME->webpage->description) 
-          xsprintf (buf, " description:'%s'", ME->webpage->description);
+          xsprintf (html, " description:'%s'", ME->webpage->description);
         if (ME->webpage->author)
-          xsprintf (buf, " author:'%s'", ME->webpage->author);
-        xsprintf(buf,"}");
+          xsprintf (html, " author:'%s'", ME->webpage->author);
       }
       else if (ME->type==tgl_message_media_venue)
       {
-        xsprintf (buf, "{venue https://maps.google.com/?q=%.6lf,%.6lf", ME->venue.geo.latitude, ME->venue.geo.longitude);
+        xsprintf (html, "<div class='content'><a href='https://maps.google.com/?q=%.6lf,%.6lf'>Venue</a>", ME->venue.geo.latitude, ME->venue.geo.longitude);
         if (ME->venue.title) 
-          xsprintf (buf, " title:'%s'", ME->venue.title);
+          xsprintf (html, " title:'%s'", ME->venue.title);
         if (ME->venue.address) 
-          xsprintf (buf, " address:'%s'", ME->venue.address);
+          xsprintf (html, " address:'%s'", ME->venue.address);
         if (ME->venue.provider) 
-          xsprintf (buf, " provider:'%s'", ME->venue.provider);
+          xsprintf (html, " provider:'%s'", ME->venue.provider);
         if (ME->venue.venue_id) 
-          xsprintf (buf, " id:'%s'", ME->venue.venue_id);
-        xsprintf(buf,"}");
+          xsprintf (html, " id:'%s'", ME->venue.venue_id);
       }
       else
       {
-        xsprintf(buf, "{unknown}");
+        xsprintf(html,"\t<div class='content'>");
+        xsprintf(html, "[Unknown Media]");
       }
-    // print_media (ev, &M->media);
   }  
-  */
-
+  //message body
+  if (M->message && strlen (M->message))  //the message
+  {
+    htmlspecialchars(temp,M->message);
+    nl2br(temp2,temp);
+    int is_rtl=u8_is_rtl(M->message);
+    // printf("is rtl: %d\n",is_rtl);
+    xsprintf (html, "\t<div class='content'%s>%s",is_rtl?" dir='rtl'":"",temp2);
+  }
+  // else
+  //   xsprintf(html,"\t<div class='content'>");
+  xsprintf(html,"<span class='date'>%s</span></div>",date_string);
   xsprintf(html,"</div><!-- msgid: %lld --></div>\n",M->permanent_id.id);
 
   //write to file
