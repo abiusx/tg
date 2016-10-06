@@ -98,7 +98,8 @@ void initialize_css(const char *filename)
       margin:5px;\n\
       width:32px;\n\
       height:32px;\n\
-      vertical-align:middle;\n\
+      vertical-align:top;\n\
+      border-radius:50%;\n\
     }\n\
     img[src='Error.src']{\n\
       display: none;\n\
@@ -186,6 +187,25 @@ void initialize_frameset()
     ");
 }
 /**
+ * Downloads avatar and returns user id for use
+ * @param  peer [description]
+ * @return      [description]
+ */
+int download_avatar(tgl_peer_t * peer)
+{
+  int id=tgl_get_peer_id(peer->id);
+  safe_mkdir("grab/_html/avatars");
+  char temp[1024];
+  sprintf(temp,"%d",id);
+  char *avatar_file=create_download_file("_html/avatars",temp,"jpg");
+  if (!file_exists(avatar_file))
+  {
+    tgl_do_load_file_location(TLS,&peer->photo_big,download_callback,avatar_file);
+    printf("Saving avatar to %s...\n",avatar_file); 
+  }
+  return id;
+}
+/**
  * Adds a single entry to the chat list, and brings it to the top
  * @param  peer  [description]
  * @param  title [description]
@@ -247,20 +267,14 @@ int add_to_list(tgl_peer_t *peer, const char *title, const char *file)
     htmlspecialchars(t,title);
 
     printf("Adding new title '%s'...\n",t);
-    //photo
-    safe_mkdir("grab/_html/avatars");
-    char temp[1024];
-    sprintf(temp,"%d",id);
-    char *avatar_file=create_download_file("_html/avatars",temp,"jpg");
-    tgl_do_load_file_location(TLS,&peer->photo_big,download_callback,avatar_file);
-    printf("saving to %s...\n",avatar_file);
     // if (peer->photo)
       // tgl_do_load_photo(TLS,peer->photo,download_callback,file);
 
+    int avatar_id=download_avatar(peer);
     sprintf(lines[1],"<!--peerid: %d --><a class='list' target='content' href='../../%s'>\
 <object class='icon' data='avatars/%d.jpg' type='image/jpg'>\
 <img class='icon' src='avatars/default.jpg' />\
-</object>%s</a>\n",id,file,id,t);
+</object>%s</a>\n",avatar_id,file,avatar_id,t);
     free(t);
   }
 
@@ -317,8 +331,8 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   //FIXME: support reply-to embedding
   //FIXME: appropriate color for system messages depending on sender and message
   //FIXME: Use name only once in a batch of messages in groups
-  //TODO: thumbnail in group chat
   //FIXME: some groups and all channels are not recovered in -5000, TGL_PEER_CHANNEL flag is for group.
+  //  solution: supergroups are converted into channels. 
   char *html=safe_malloc(1024*1024*8);
   char *temp=safe_malloc(1024*1024);
   char *temp2=safe_malloc(1024*1024);
@@ -329,9 +343,10 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   int peer_type=tgl_get_peer_type (M->to_id);
   tgl_peer_t * sender_peer;
   tgl_peer_t * chat_peer;
-
   char *operation=safe_malloc(1024);
   int is_group=0;
+
+  //determine type of message
   if (peer_type==TGL_PEER_USER)
   {
     if (M->flags & TGLMF_OUT) //outbound, use to_id
@@ -369,17 +384,16 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
   }
   if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)==0)
     operation="send";
-  // int sender_id=tgl_get_peer_id(sender_peer->id);
-  int chat_id=tgl_get_peer_id(chat_peer->id);
 
+  int chat_id=tgl_get_peer_id(chat_peer->id);
   char *chat_filename=safe_malloc(1024);
   get_peer_filename(chat_filename,chat_peer);
   char *chat_title=safe_malloc(1024);
   get_peer_title(chat_title,chat_peer);
 
 
-  char *date_string=safe_malloc(256);
   //date string
+  char *date_string=safe_malloc(256);
   date2string(date_string,M->date);
   
   //filename
@@ -391,19 +405,30 @@ void dump_message_html(struct tgl_message *M,struct in_ev *ev)
     initiate_html(chat_id,chat_filename,chat_title);
 
 
-
+  //add sender to chat list
   add_to_list(chat_peer,chat_title,chat_filename);
 
-  xsprintf(html,"<div class='message_container'><a name='message_%lld' /><div class='message %s'>\n",M->permanent_id.id,operation);
+  //start message
+  xsprintf(html,"<div class='message_container'><a name='message_%lld'></a>",M->permanent_id.id);
 
-//sender name  
-if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
-{
-  // xsprintf(html,"<div class='user'>%s</div>\n",temp);
-  htmlspecialchars(temp,get_peer_title (temp2,sender_peer));    
-  xsprintf (html, "\t<div class='sysem'><a href='https://telegram.me/%s'>%s</a></div>\n",
-    sender_peer->username,temp);
-}
+  //sender thumbnail in group
+  if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
+  {
+    xsprintf(html,"<a href='https://telegram.me/%s'>\
+<object class='avatar' data='_html/avatars/%d.jpg' type='image/jpg'>\
+<img class='avatar' src='_html/avatars/default.jpg' />\
+</object></a>",
+      sender_peer->username,download_avatar(sender_peer));
+  }  
+  xsprintf(html,"<div class='message %s'>\n",operation);
+
+  //sender name  
+  if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
+  {
+    htmlspecialchars(temp,get_peer_title (temp2,sender_peer));    
+    xsprintf (html, "\t<div class='sysem'><a href='https://telegram.me/%s'>%s</a></div>\n",
+      sender_peer->username,temp);
+  }
 
 
   //other message types
@@ -416,11 +441,8 @@ if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
   }
   if (M->reply_id) //reply
   {
-    //FIXME: reply_id is int, not tgl_peer_id_t
-    // htmlspecialchars(temp,get_peer_title (temp2,tgl_peer_get (TLS, M->reply_id)));    
-    xsprintf (html, "\t<div class='sysem'>Reply to <a href='https://telegram.me/%s'>%d</a></div>\n",
-      "#", M->reply_id);
-      // tgl_peer_get (TLS, M->reply_id)->username,temp);
+    xsprintf (html, "\t<div class='sysem'>Reply to <a href='#message_%d'>%d</a></div>\n",
+      M->reply_id, M->reply_id);
   }
   // if (M->flags & TGLMF_MENTION) //mention, only works when someone else mentions YOU in a group (or when someone replies you)
   // {
@@ -610,7 +632,7 @@ if (is_group && tgl_cmp_peer_id (sender_peer->id, TLS->our_id)!=0)
   }  
   */
 
-  xsprintf(html,"<!-- msgid: %lld --></div>\n",M->permanent_id.id);
+  xsprintf(html,"</div><!-- msgid: %lld --></div>\n",M->permanent_id.id);
 
   //write to file
   FILE * f=fopen(chat_filename,"at+");
