@@ -202,7 +202,7 @@ static inline void* safe_malloc(size_t n)
         sprintf(buf+strlen(buf),format, ##__VA_ARGS__); \
     } while(0)
 
-void safe_mkdir(char *dir)
+void safe_mkdir(const char *dir)
 {
   struct stat st = {0};
   if (stat(dir, &st) == -1) 
@@ -226,6 +226,14 @@ int file_exists(const char *filepath)
   fclose(fp);
   return fp!=0;
 }
+/**
+ * allocates the result, have to release
+ * 
+ * @param  orig [description]
+ * @param  rep  [description]
+ * @param  with [description]
+ * @return      [description]
+ */
 char *str_replace(const char *orig, char *rep, char *with) {
     char *result; // the return string
     char *ins;    // the next insert point
