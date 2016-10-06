@@ -83,7 +83,9 @@ char * create_download_file(const char *folder,const char *file,const char *exte
   else
     strcpy(filename,file);
   char *filepath=safe_malloc(1024);
-  sprintf(filepath,"grab/%s/%s.%s",folder,filename,extension);
+  sprintf(filepath,"grab/%s/",folder);
+  safe_mkdir(filepath);
+  xsprintf(filepath,"%s.%s",filename,extension);
   return filepath;
 }
 
